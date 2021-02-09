@@ -1,0 +1,47 @@
+Variable,Concept,Label
+COUNTY1,,FIPS county code of reference geography
+COUNTY1_NAME,,FIPS county name of reference geography
+COUNTY2,,FIPS county code of second geography
+COUNTY2_NAME,,FIPS county name of second geography (blank for world region)
+for,Census API Geography Specification,Census API FIPS 'for' clause
+FROMABROAD_M,,Movers from abroad margin of error
+FROMDIFFCTY_M,,"Movers from different county, same state margin of error"
+FROMDIFFMCD_M,,"Movers from different MCD, same state margin of error"
+FROMDIFFMETRO_M,,Movers from different metro area in the United States or Puerto Rico margin of error
+FROMDIFFSTATE_M,,Movers from different state margin of error
+FROMELSEWHEREUSPR_M,,Movers from outside metro area in the United States or Puerto Rico margin of error
+FULL1_NAME,,Full name of reference geography
+FULL2_NAME,,Full name of second geography
+GEOID1,,Combined codes for the reference geography
+GEOID2,,Combined codes for the second geography
+in,Census API Geography Specification,Census API FIPS 'in' clause
+MCD1,,FIPS MCD code of reference geography
+MCD1_NAME,,MCD name of reference geography
+MCD2,,FIPS MCD code of second geography
+MCD2_NAME,,MCD name of second geography (blank for world region)
+METRO1,,Metropolitan statistical area code of reference geography
+METRO1_NAME,,Metropolitan statistical area name of reference geography
+METRO2,,Metropolitan statistical area code of second geography
+METRO2_NAME,,Metropolitan statistical area name of second geography
+MOVEDIN_M,,Total inbound migration margin of error
+MOVEDNET_M,,Total net migration margin of error
+MOVEDOUT_M,,Total outbound migration margin of error
+NONMOVERS_M,,Same residence 1 year ago (nonmovers) margin of error
+POP1YR_M,,Population 1 year and over margin of error
+POP1YRAGO_M,,Population living in county 1 year ago margin of error
+SAMECOUNTY_M,,Movers within same county margin of error
+SAMEMCD_M,,Movers within same MCD margin of error
+SAMEMETRO_M,,Movers within same metro area margin of error
+STATE1,,FIPS county code of reference geography
+STATE1_NAME,,FIPS State name of reference geography
+STATE2,,State code/world region code of second geography
+STATE2_NAME,,State code/world region name of second geography
+SUMLEV1,,Geographic summary level of reference geography
+SUMLEV2,,Geographic summary level of second geography
+TODIFFCTY_M,,"Movers to different county, same state margin of error"
+TODIFFMCD_M,,"Movers to different MCD, same state margin of error"
+TODIFFMETRO_M,,Movers to different metro area margin of error
+TODIFFSTATE_M,,Movers to different state margin of error
+TOELSEWHEREUSPR_M,,Movers to outside metro area in the United States or Puerto Rico margin of error
+TOPUERTORICO_M,,Movers to Puerto Rico margin of error
+ucgid,Census API Geography Specification,Uniform Census Geography Identifier clause
