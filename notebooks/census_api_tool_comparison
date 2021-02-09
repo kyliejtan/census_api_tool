@@ -1,0 +1,581 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Dependencies"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import census_api_tools as cat\n",
+    "import json\n",
+    "import numpy as np\n",
+    "import os\n",
+    "import pandas as pd\n",
+    "import re\n",
+    "import requests\n",
+    "from dotenv import load_dotenv\n",
+    "from tqdm.notebook import tqdm\n",
+    "from tqdm.auto import trange"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Env variables"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "load_dotenv(\"../env/census.env\")\n",
+    "census_key = os.environ.get(\"CENSUS_KEY\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Querying the ACS5 API without census_api_tools"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "US Census Bureau documentation for the American Community Survey 5-Year Estimates API (https://www.census.gov/data/developers/data-sets/acs-5year.html) provides the following as an example call for their API:\n",
+    "\n",
+    "Example Call: api.census.gov/data/2019/acs/acs5?get=NAME,group(B01001)&for=us:1&key=YOUR_KEY_GOES_HERE\n",
+    "\n",
+    "This call returns a JSON with:\n",
+    "1. The name of the geography specified by \"for=\" which in this case (us:1) is the entire United States.\n",
+    "2. All of the child-variables that fall under B01001 (Which is the parent variable representing the \"Sex by Age\" concept included in the ACS 5-Year Detailed Tables API). Examples of these child variables are: B01001_036E\tEstimate!!Total:!!Female:!!30 to 34 years or B01001_049M\tMargin of Error!!Total:!!Female:!!85 years and over\n",
+    "\n",
+    "Being able to get an entire group-worth of census data with just one call is awesome! However, depending on what you plan to do with the data, only getting variables names like B01001_036E or B01001_049M and their accompanying values leave a lot to be desired. For example, what the heck does B01001_049M stand for again?"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "api_response = requests.get(f\"https://api.census.gov/data/2019/acs/acs5?get=NAME,group(B01001)&for=us:1&key={census_key}\").json()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "api_response_df = pd.DataFrame({\"Name\": api_response[0], \"Value\": api_response[1]})"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>Name</th>\n",
+       "      <th>Value</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>190</th>\n",
+       "      <td>B01001_048EA</td>\n",
+       "      <td>None</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>191</th>\n",
+       "      <td>B01001_048M</td>\n",
+       "      <td>10508</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>192</th>\n",
+       "      <td>B01001_048MA</td>\n",
+       "      <td>None</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>193</th>\n",
+       "      <td>B01001_049E</td>\n",
+       "      <td>4070765</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>194</th>\n",
+       "      <td>B01001_049EA</td>\n",
+       "      <td>None</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>195</th>\n",
+       "      <td>B01001_049M</td>\n",
+       "      <td>9664</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>196</th>\n",
+       "      <td>B01001_049MA</td>\n",
+       "      <td>None</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>197</th>\n",
+       "      <td>GEO_ID</td>\n",
+       "      <td>0100000US</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>198</th>\n",
+       "      <td>NAME</td>\n",
+       "      <td>United States</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>199</th>\n",
+       "      <td>us</td>\n",
+       "      <td>1</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "             Name          Value\n",
+       "190  B01001_048EA           None\n",
+       "191   B01001_048M          10508\n",
+       "192  B01001_048MA           None\n",
+       "193   B01001_049E        4070765\n",
+       "194  B01001_049EA           None\n",
+       "195   B01001_049M           9664\n",
+       "196  B01001_049MA           None\n",
+       "197        GEO_ID      0100000US\n",
+       "198          NAME  United States\n",
+       "199            us              1"
+      ]
+     },
+     "execution_count": 5,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "api_response_df.tail(10)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "You can imagine how time consuming it might be to have to keep refering back to the API documentation in order to decode each variable while trying to create a visualization of the demographics of a particular region, or when trying to assemble a meaningful, easy-to-read dataset to share with your collaborators, or to even just come back to working on after a fun weekend during which you spent none of your time committing \"B01001_049M equals Margin of Error!!Total:!!Female:!!85 years and over\" to memory. "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Querying the ACS5 API for different geographies without census_api_tools"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "In order to change the geographic resolution that a query to a US Census Bureau API is performed for, the \"for=\" protion of the query URL needs to be changed to the appropriate string. These could range anywhere from \n",
+    "\n",
+    "\"for=us:\" \n",
+    "\n",
+    "to \n",
+    "\n",
+    "\"for=tribal%20census%20tract%20(or%20part):*&in=american%20indian%20area/alaska%20native%20area/hawaiian%20home%20land:0010%20american%20indian%20area/alaska%20native%20area%20(reservation%20or%20statistical%20entity%20only):R\"\n",
+    "\n",
+    "In addition to manually cutting and pasting these strings into your query URL everytime you want to change geographic resolutions, you also need to find each of the colons in the string so that you can input the approrpiate FIPS code or land-type code (T for \"off-reservation trust land only\", or R or S for \"reservation or statistical entity only\" for example)\n",
+    "\n",
+    "Having to cut and paste strings and manually enter FIPS codes is time consuming and could possibly lead to query errors if part of a string is left out or if a FIPS code ends up in the wrong place amidst the sea of \"for=tribal%20census%20tract%20(or%20part):*&in=american%20indian%20area/alaska%20native%20area/hawaiian%20home%20land:0010%20american%20indian%20area/alaska%20native%20area%20(reservation%20or%20statistical%20entity%20only):R\""
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Querying the ACS5 API with census_api_tools"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "My goal for this tool was to be able to quickly and easily perform queries of any of the US Census Bureau API's, for any geographic resolution, and to have the results returned as a Pandas DataFrame that includes the explanations of what each variable means."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "year_list = [2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010, 2009]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "In this next cell, I will run the tool I have created to do just this. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "1ddbca14e2414e4189758c029ab7a2c7",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "HBox(children=(HTML(value='Years'), FloatProgress(value=0.0, max=10.0), HTML(value='')))"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "52d90f1b43844f179214e66c710e3d54",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "HBox(children=(HTML(value='Sets'), FloatProgress(value=0.0, max=7.0), HTML(value='')))"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "application/vnd.jupyter.widget-view+json": {
+       "model_id": "377620a9594f4fa4b3877015099035f8",
+       "version_major": 2,
+       "version_minor": 0
+      },
+      "text/plain": [
+       "HBox(children=(HTML(value='Geographic Locations'), FloatProgress(value=1.0, bar_style='info', layout=Layout(wi…"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001_001E,B01001_002E,B01001_003E,B01001_004E,B01001_005E,B01001_006E,B01001_007E,B01001_008E,B01001_009E,B01001_010E,B01001_011E,B01001_012E,B01001_013E,B01001_014E,B01001_015E,B01001_016E,B01001_017E,B01001_018E,B01001_019E,B01001_020E,B01001_021E,B01001_022E,B01001_023E,B01001_024E,B01001_025E,B01001_026E,B01001_027E,B01001_028E,B01001_029E,B01001_030E,B01001_031E,B01001_032E,B01001_033E,B01001_034E,B01001_035E,B01001_036E,B01001_037E,B01001_038E,B01001_039E,B01001_040E,B01001_041E,B01001_042E,B01001_043E,B01001_044E,B01001_045E,B01001_046E,B01001_047E,B01001_048E,B01001_049E,B01001A_001E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001A_002E,B01001A_003E,B01001A_004E,B01001A_005E,B01001A_006E,B01001A_007E,B01001A_008E,B01001A_009E,B01001A_010E,B01001A_011E,B01001A_012E,B01001A_013E,B01001A_014E,B01001A_015E,B01001A_016E,B01001A_017E,B01001A_018E,B01001A_019E,B01001A_020E,B01001A_021E,B01001A_022E,B01001A_023E,B01001A_024E,B01001A_025E,B01001A_026E,B01001A_027E,B01001A_028E,B01001A_029E,B01001A_030E,B01001A_031E,B01001B_001E,B01001B_002E,B01001B_003E,B01001B_004E,B01001B_005E,B01001B_006E,B01001B_007E,B01001B_008E,B01001B_009E,B01001B_010E,B01001B_011E,B01001B_012E,B01001B_013E,B01001B_014E,B01001B_015E,B01001B_016E,B01001B_017E,B01001B_018E,B01001B_019E,B01001B_020E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001B_021E,B01001B_022E,B01001B_023E,B01001B_024E,B01001B_025E,B01001B_026E,B01001B_027E,B01001B_028E,B01001B_029E,B01001B_030E,B01001B_031E,B01001C_001E,B01001C_002E,B01001C_003E,B01001C_004E,B01001C_005E,B01001C_006E,B01001C_007E,B01001C_008E,B01001C_009E,B01001C_010E,B01001C_011E,B01001C_012E,B01001C_013E,B01001C_014E,B01001C_015E,B01001C_016E,B01001C_017E,B01001C_018E,B01001C_019E,B01001C_020E,B01001C_021E,B01001C_022E,B01001C_023E,B01001C_024E,B01001C_025E,B01001C_026E,B01001C_027E,B01001C_028E,B01001C_029E,B01001C_030E,B01001C_031E,B01001D_001E,B01001D_002E,B01001D_003E,B01001D_004E,B01001D_005E,B01001D_006E,B01001D_007E,B01001D_008E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001D_009E,B01001D_010E,B01001D_011E,B01001D_012E,B01001D_013E,B01001D_014E,B01001D_015E,B01001D_016E,B01001D_017E,B01001D_018E,B01001D_019E,B01001D_020E,B01001D_021E,B01001D_022E,B01001D_023E,B01001D_024E,B01001D_025E,B01001D_026E,B01001D_027E,B01001D_028E,B01001D_029E,B01001D_030E,B01001D_031E,B01001E_001E,B01001E_002E,B01001E_003E,B01001E_004E,B01001E_005E,B01001E_006E,B01001E_007E,B01001E_008E,B01001E_009E,B01001E_010E,B01001E_011E,B01001E_012E,B01001E_013E,B01001E_014E,B01001E_015E,B01001E_016E,B01001E_017E,B01001E_018E,B01001E_019E,B01001E_020E,B01001E_021E,B01001E_022E,B01001E_023E,B01001E_024E,B01001E_025E,B01001E_026E,B01001E_027E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001E_028E,B01001E_029E,B01001E_030E,B01001E_031E,B01001F_001E,B01001F_002E,B01001F_003E,B01001F_004E,B01001F_005E,B01001F_006E,B01001F_007E,B01001F_008E,B01001F_009E,B01001F_010E,B01001F_011E,B01001F_012E,B01001F_013E,B01001F_014E,B01001F_015E,B01001F_016E,B01001F_017E,B01001F_018E,B01001F_019E,B01001F_020E,B01001F_021E,B01001F_022E,B01001F_023E,B01001F_024E,B01001F_025E,B01001F_026E,B01001F_027E,B01001F_028E,B01001F_029E,B01001F_030E,B01001F_031E,B01001G_001E,B01001G_002E,B01001G_003E,B01001G_004E,B01001G_005E,B01001G_006E,B01001G_007E,B01001G_008E,B01001G_009E,B01001G_010E,B01001G_011E,B01001G_012E,B01001G_013E,B01001G_014E,B01001G_015E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001G_016E,B01001G_017E,B01001G_018E,B01001G_019E,B01001G_020E,B01001G_021E,B01001G_022E,B01001G_023E,B01001G_024E,B01001G_025E,B01001G_026E,B01001G_027E,B01001G_028E,B01001G_029E,B01001G_030E,B01001G_031E,B01001H_001E,B01001H_002E,B01001H_003E,B01001H_004E,B01001H_005E,B01001H_006E,B01001H_007E,B01001H_008E,B01001H_009E,B01001H_010E,B01001H_011E,B01001H_012E,B01001H_013E,B01001H_014E,B01001H_015E,B01001H_016E,B01001H_017E,B01001H_018E,B01001H_019E,B01001H_020E,B01001H_021E,B01001H_022E,B01001H_023E,B01001H_024E,B01001H_025E,B01001H_026E,B01001H_027E,B01001H_028E,B01001H_029E,B01001H_030E,B01001H_031E,B01001I_001E,B01001I_002E,B01001I_003E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "https://api.census.gov/data/2018/acs/acs5?get=B01001I_004E,B01001I_005E,B01001I_006E,B01001I_007E,B01001I_008E,B01001I_009E,B01001I_010E,B01001I_011E,B01001I_012E,B01001I_013E,B01001I_014E,B01001I_015E,B01001I_016E,B01001I_017E,B01001I_018E,B01001I_019E,B01001I_020E,B01001I_021E,B01001I_022E,B01001I_023E,B01001I_024E,B01001I_025E,B01001I_026E,B01001I_027E,B01001I_028E,B01001I_029E,B01001I_030E,B01001I_031E&for=county:*&in=state:06&key=KEY_REDACTED\n",
+      "CPU times: user 1min 2s, sys: 9.51 s, total: 1min 12s\n",
+      "Wall time: 2min 41s\n"
+     ]
+    }
+   ],
+   "source": [
+    "%%time \n",
+    "cat_result = cat.census_api_query(\"../resources/variables/acs5/acs5_2018_variables.csv\", \"B01001\", year_list, \"50b\", [\"*\", \"06\"], census_key)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "190240"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "len(cat_result)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>Year</th>\n",
+       "      <th>Variable</th>\n",
+       "      <th>Value</th>\n",
+       "      <th>State</th>\n",
+       "      <th>County</th>\n",
+       "      <th>Label</th>\n",
+       "      <th>Concept</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>2018</td>\n",
+       "      <td>B01001_001E</td>\n",
+       "      <td>64148</td>\n",
+       "      <td>06</td>\n",
+       "      <td>033</td>\n",
+       "      <td>Estimate!!Total</td>\n",
+       "      <td>SEX BY AGE</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>2018</td>\n",
+       "      <td>B01001_002E</td>\n",
+       "      <td>31879</td>\n",
+       "      <td>06</td>\n",
+       "      <td>033</td>\n",
+       "      <td>Estimate!!Total!!Male</td>\n",
+       "      <td>SEX BY AGE</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>2018</td>\n",
+       "      <td>B01001_003E</td>\n",
+       "      <td>1812</td>\n",
+       "      <td>06</td>\n",
+       "      <td>033</td>\n",
+       "      <td>Estimate!!Total!!Male!!Under 5 years</td>\n",
+       "      <td>SEX BY AGE</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>2018</td>\n",
+       "      <td>B01001_004E</td>\n",
+       "      <td>1844</td>\n",
+       "      <td>06</td>\n",
+       "      <td>033</td>\n",
+       "      <td>Estimate!!Total!!Male!!5 to 9 years</td>\n",
+       "      <td>SEX BY AGE</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>2018</td>\n",
+       "      <td>B01001_005E</td>\n",
+       "      <td>1893</td>\n",
+       "      <td>06</td>\n",
+       "      <td>033</td>\n",
+       "      <td>Estimate!!Total!!Male!!10 to 14 years</td>\n",
+       "      <td>SEX BY AGE</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>...</th>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>190235</th>\n",
+       "      <td>2009</td>\n",
+       "      <td>B01001I_027E</td>\n",
+       "      <td>703</td>\n",
+       "      <td>06</td>\n",
+       "      <td>115</td>\n",
+       "      <td>Estimate!!Total!!Female!!45 to 54 years</td>\n",
+       "      <td>SEX BY AGE (HISPANIC OR LATINO)</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>190236</th>\n",
+       "      <td>2009</td>\n",
+       "      <td>B01001I_028E</td>\n",
+       "      <td>399</td>\n",
+       "      <td>06</td>\n",
+       "      <td>115</td>\n",
+       "      <td>Estimate!!Total!!Female!!55 to 64 years</td>\n",
+       "      <td>SEX BY AGE (HISPANIC OR LATINO)</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>190237</th>\n",
+       "      <td>2009</td>\n",
+       "      <td>B01001I_029E</td>\n",
+       "      <td>149</td>\n",
+       "      <td>06</td>\n",
+       "      <td>115</td>\n",
+       "      <td>Estimate!!Total!!Female!!65 to 74 years</td>\n",
+       "      <td>SEX BY AGE (HISPANIC OR LATINO)</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>190238</th>\n",
+       "      <td>2009</td>\n",
+       "      <td>B01001I_030E</td>\n",
+       "      <td>134</td>\n",
+       "      <td>06</td>\n",
+       "      <td>115</td>\n",
+       "      <td>Estimate!!Total!!Female!!75 to 84 years</td>\n",
+       "      <td>SEX BY AGE (HISPANIC OR LATINO)</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>190239</th>\n",
+       "      <td>2009</td>\n",
+       "      <td>B01001I_031E</td>\n",
+       "      <td>62</td>\n",
+       "      <td>06</td>\n",
+       "      <td>115</td>\n",
+       "      <td>Estimate!!Total!!Female!!85 years and over</td>\n",
+       "      <td>SEX BY AGE (HISPANIC OR LATINO)</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>190240 rows × 7 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "        Year      Variable  Value State County  \\\n",
+       "0       2018   B01001_001E  64148    06    033   \n",
+       "1       2018   B01001_002E  31879    06    033   \n",
+       "2       2018   B01001_003E   1812    06    033   \n",
+       "3       2018   B01001_004E   1844    06    033   \n",
+       "4       2018   B01001_005E   1893    06    033   \n",
+       "...      ...           ...    ...   ...    ...   \n",
+       "190235  2009  B01001I_027E    703    06    115   \n",
+       "190236  2009  B01001I_028E    399    06    115   \n",
+       "190237  2009  B01001I_029E    149    06    115   \n",
+       "190238  2009  B01001I_030E    134    06    115   \n",
+       "190239  2009  B01001I_031E     62    06    115   \n",
+       "\n",
+       "                                             Label  \\\n",
+       "0                                  Estimate!!Total   \n",
+       "1                            Estimate!!Total!!Male   \n",
+       "2             Estimate!!Total!!Male!!Under 5 years   \n",
+       "3              Estimate!!Total!!Male!!5 to 9 years   \n",
+       "4            Estimate!!Total!!Male!!10 to 14 years   \n",
+       "...                                            ...   \n",
+       "190235     Estimate!!Total!!Female!!45 to 54 years   \n",
+       "190236     Estimate!!Total!!Female!!55 to 64 years   \n",
+       "190237     Estimate!!Total!!Female!!65 to 74 years   \n",
+       "190238     Estimate!!Total!!Female!!75 to 84 years   \n",
+       "190239  Estimate!!Total!!Female!!85 years and over   \n",
+       "\n",
+       "                                Concept  \n",
+       "0                            SEX BY AGE  \n",
+       "1                            SEX BY AGE  \n",
+       "2                            SEX BY AGE  \n",
+       "3                            SEX BY AGE  \n",
+       "4                            SEX BY AGE  \n",
+       "...                                 ...  \n",
+       "190235  SEX BY AGE (HISPANIC OR LATINO)  \n",
+       "190236  SEX BY AGE (HISPANIC OR LATINO)  \n",
+       "190237  SEX BY AGE (HISPANIC OR LATINO)  \n",
+       "190238  SEX BY AGE (HISPANIC OR LATINO)  \n",
+       "190239  SEX BY AGE (HISPANIC OR LATINO)  \n",
+       "\n",
+       "[190240 rows x 7 columns]"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "cat_result"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "So far, I am really happy with the results this tool is able to deliver. In this example, a DataFrame comprised of almost 200,000 rows, holding the populations of each of California's 58 counties, broken down by the sex and age categories defined by the US Census Bureau in the B01001 parent variable of the ACS 5-Year Detailed Tables API, covering the 10 years between 2018 and 2009. With all of Labels, Concepts, and geographies clearly delineated in their own columns, in under 3 minutes and with just one line of code."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.8"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
